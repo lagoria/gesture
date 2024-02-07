@@ -1,0 +1,157 @@
+﻿#include "mainwindow.h"
+#include "ui_mainwindow.h"
+
+
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+    setWindowTitle(QStringLiteral("目标手势检测软件"));
+
+    ui->startdetect->setEnabled(false);
+    ui->stopdetect->setEnabled(false);
+    this->model = new DetectModel();
+    this->model->classNameConfig(class_name);
+
+    connect(this->model->thread, &VideoDetectThread::reportProgress, this, &MainWindow::detectReport);
+    connect(this->model->thread, &VideoDetectThread::done, this, &MainWindow::playDone);
+}
+
+MainWindow::~MainWindow()
+{
+    delete model;
+    delete ui;
+}
+
+
+
+void MainWindow::on_openfile_clicked()
+{
+    this->filename = QFileDialog::getOpenFileName(this,QStringLiteral("打开文件"),".","*.png *.jpg *.jpeg *.bmp;;*.mp4 *.avi");
+    if(!QFile::exists(this->filename)){
+        return;
+    }
+    ui->statusbar->showMessage(this->filename);
+
+    QMimeDatabase db;
+    QMimeType mime = db.mimeTypeForFile(this->filename);
+    if (mime.name().startsWith("image/")) {
+
+        ui->textEditlog->append(QString("Picture opened successfully!"));
+        QPixmap pixmap(this->filename.toLatin1().data());
+        ui->label->setPixmap(pixmap);
+        ui->label->setScaledContents(true);
+
+        // 设置图片选择事件
+        event_group.setBits(SELECT_PICTURE_EVT);
+        event_group.clearBits(SELECT_VIDEO_EVT);
+
+    } else if (mime.name().startsWith("video/")) {
+        if (!model->openVideo(filename.toLatin1().data())){
+            ui->textEditlog->append("fail to open MP4!");
+            return;
+        }
+
+        ui->textEditlog->append(QString("Video opened succesfully!"));
+
+        //获取整个帧数QStringLiteral
+        long totalFrame = model->capture->get(cv::CAP_PROP_FRAME_COUNT);
+        int width = model->capture->get(cv::CAP_PROP_FRAME_WIDTH);
+        int height = model->capture->get(cv::CAP_PROP_FRAME_HEIGHT);
+        ui->textEditlog->append(QStringLiteral("整个视频共 %1 帧, 宽=%2 高=%3 ").arg(totalFrame).arg(width).arg(height));
+        // ui->label->resize(QSize(width, height));
+
+        //设置开始帧()
+        unsigned long frameToStart = 0;
+        model->setVideoStartFrame(frameToStart);
+        ui->textEditlog->append(QStringLiteral("从第 %1 帧开始读").arg(frameToStart));
+
+        //获取帧率
+        double rate = model->capture->get(cv::CAP_PROP_FPS);
+        ui->textEditlog->append(QStringLiteral("帧率为: %1 ").arg(rate));
+
+        // 设置视频选择事件
+        event_group.setBits(SELECT_VIDEO_EVT);
+        event_group.clearBits(SELECT_PICTURE_EVT);
+    }
+
+    // 判断事件条件，启动预测按钮
+    event_group.setBits(OPENED_FILE_EVT);
+    if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
+        ui->startdetect->setEnabled(true);
+    }
+
+}
+
+void MainWindow::on_loadfile_clicked()
+{
+    QString onnxFile = QFileDialog::getOpenFileName(this,QStringLiteral("选择模型"),".","*.onnx");
+    if(!QFile::exists(onnxFile)){
+        return;
+    }
+    ui->statusbar->showMessage(onnxFile);
+    if (!model->loadOnnx(onnxFile.toLatin1().data())){
+        ui->textEditlog->append(QStringLiteral("加载模型失败！"));
+        return;
+    }
+    ui->textEditlog->append(QString("OnnxFile opened succesfully!"));
+    // 判断事件条件，启动预测按钮
+    event_group.setBits(OPENED_ONNX_EVT);
+    if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
+        ui->startdetect->setEnabled(true);
+    }
+}
+
+void MainWindow::on_startdetect_clicked()
+{
+
+    ui->startdetect->setEnabled(false);
+    ui->stopdetect->setEnabled(true);
+    ui->openfile->setEnabled(false);
+    ui->loadfile->setEnabled(false);
+    ui->textEditlog->append(QStringLiteral("=========开始检测=========\n"));
+
+    if (event_group.waitBits(SELECT_PICTURE_EVT)) {
+        auto start = std::chrono::steady_clock::now();
+        QPixmap output = model->pictureDetect(this->filename.toLatin1().data());
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double, std::milli> elapsed = end - start;
+        ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsed.count()));
+        ui->label->setPixmap(output);
+        ui->label->setScaledContents(true);
+    }
+
+    if (event_group.waitBits(SELECT_VIDEO_EVT)) {
+        time_last = std::chrono::steady_clock::now();
+        this->model->startVideoDetect();
+    }
+}
+
+void MainWindow::on_stopdetect_clicked()
+{
+    ui->startdetect->setEnabled(true);
+    ui->stopdetect->setEnabled(false);
+    ui->openfile->setEnabled(true);
+    ui->loadfile->setEnabled(true);
+    ui->textEditlog->append(QStringLiteral("=========结束检测=========\n"));
+    this->model->pauseVideoDetect();
+}
+
+
+void MainWindow::detectReport(const QPixmap &output)
+{
+    auto now = std::chrono::steady_clock::now();
+    std::chrono::duration<double, std::milli> elapsed = now - time_last;
+    time_last = now;
+    ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsed.count()));
+
+    ui->label->setPixmap(output);
+    ui->label->setScaledContents(true);
+}
+
+void MainWindow::playDone()
+{
+    ui->textEditlog->append(QString("Video has completed playing!"));
+}
