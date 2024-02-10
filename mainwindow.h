@@ -11,13 +11,12 @@
 #include <QMutexLocker>
 #include <QMimeDatabase>
 #include <iostream>
-#include <chrono>
+#include <QElapsedTimer>
 #include <QThread>
 
 #include <yolov5.h>
 #include "eventgroup.h"
 
-#include "openvino/openvino.hpp"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -55,10 +54,11 @@ private slots:
 private:
     std::vector<std::string> class_name = {"0", "1", "2", "3", "5"};
     Ui::MainWindow *ui;
-    std::chrono::_V2::steady_clock::time_point time_last;
+    QElapsedTimer timer;
     DetectModel *model;
     QString filename;
     EventGroup event_group;
+    unsigned long current_frames = 0;
 
 };
 #endif // MAINWINDOW_H

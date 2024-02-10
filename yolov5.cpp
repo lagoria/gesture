@@ -10,6 +10,8 @@ DetectModel::DetectModel()
     this->config.nms_threshold = 0.45;
     this->config.confidence_threshold = 0.45;
 
+    cudaEnableStatus = false;
+
     this->start_frame = 0;
 
     this->thread = new VideoDetectThread();
@@ -18,6 +20,7 @@ DetectModel::DetectModel()
 
 DetectModel::~DetectModel()
 {
+    capture->release();
     delete capture;
     delete thread;
 }
@@ -36,6 +39,17 @@ void DetectModel::classNameConfig(std::vector<std::string> &classes)
 bool DetectModel::loadOnnx(const char *onnxfile)
 {
     this->net = cv::dnn::readNet(onnxfile);
+    if (net.empty()) {
+        return false;
+    }
+    int device_count = cv::cuda::getCudaEnabledDeviceCount();
+    if (device_count >= 1){
+        cudaEnableStatus = true;
+        this->net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+        this->net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+    }else{
+        cudaEnableStatus = false;
+    }
     return true;
 }
 
@@ -247,9 +261,9 @@ bool DetectModel::openVideo(const char *file)
 void DetectModel::setVideoStartFrame(unsigned long startPoint)
 {
     long totalFrame = this->capture->get(cv::CAP_PROP_FRAME_COUNT);
-    if (startPoint > totalFrame) return;
-    this->start_frame = startPoint;
-    this->capture->set(cv::CAP_PROP_POS_FRAMES, start_frame);
+    if (startPoint < totalFrame) {
+        this->start_frame = startPoint;
+    }
 }
 
 void DetectModel::startVideoDetect()
@@ -291,12 +305,12 @@ void VideoDetectThread::configure(DetectModel *model_)
 void VideoDetectThread::run()
 {
     cv::Mat frame;
+    pauseFlag = false;
     while (this->model->capture->read(frame)) {
         QPixmap output = this->model->frameDetect(frame);
         emit reportProgress(output);
 
         if (pauseFlag == true) {
-            pauseFlag = false;
             break;
         }
     }

@@ -50,7 +50,7 @@ void MainWindow::on_openfile_clicked()
 
     } else if (mime.name().startsWith("video/")) {
         if (!model->openVideo(filename.toLatin1().data())){
-            ui->textEditlog->append("fail to open MP4!");
+            ui->textEditlog->append("fail to open video!");
             return;
         }
 
@@ -97,6 +97,12 @@ void MainWindow::on_loadfile_clicked()
         return;
     }
     ui->textEditlog->append(QString("OnnxFile opened succesfully!"));
+
+    if (this->model->cudaEnableStatus) {
+        ui->textEditlog->append(QString("Use the CUDA inference!"));
+    } else {
+        ui->textEditlog->append(QString("Use the CPU inference!"));
+    }
     // 判断事件条件，启动预测按钮
     event_group.setBits(OPENED_ONNX_EVT);
     if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
@@ -106,52 +112,66 @@ void MainWindow::on_loadfile_clicked()
 
 void MainWindow::on_startdetect_clicked()
 {
-
-    ui->startdetect->setEnabled(false);
-    ui->stopdetect->setEnabled(true);
-    ui->openfile->setEnabled(false);
-    ui->loadfile->setEnabled(false);
-    ui->textEditlog->append(QStringLiteral("=========开始检测=========\n"));
-
     if (event_group.waitBits(SELECT_PICTURE_EVT)) {
-        auto start = std::chrono::steady_clock::now();
+        timer.start();
         QPixmap output = model->pictureDetect(this->filename.toLatin1().data());
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double, std::milli> elapsed = end - start;
-        ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsed.count()));
+        int elapsedTime = timer.elapsed();
+        ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsedTime));
         ui->label->setPixmap(output);
         ui->label->setScaledContents(true);
     }
 
     if (event_group.waitBits(SELECT_VIDEO_EVT)) {
-        time_last = std::chrono::steady_clock::now();
+        ui->startdetect->setEnabled(false);
+        ui->stopdetect->setEnabled(true);
+        ui->openfile->setEnabled(false);
+        ui->loadfile->setEnabled(false);
+        ui->textEditlog->append(QStringLiteral("=========开始检测=========\n"));
+
+        // 开始计时
+        timer.start();
         this->model->startVideoDetect();
     }
 }
 
 void MainWindow::on_stopdetect_clicked()
 {
-    ui->startdetect->setEnabled(true);
-    ui->stopdetect->setEnabled(false);
-    ui->openfile->setEnabled(true);
-    ui->loadfile->setEnabled(true);
-    ui->textEditlog->append(QStringLiteral("=========结束检测=========\n"));
-    this->model->pauseVideoDetect();
+
+    if (event_group.waitBits(SELECT_PICTURE_EVT)) {
+        ui->startdetect->setEnabled(true);
+        ui->stopdetect->setEnabled(false);
+        ui->openfile->setEnabled(true);
+        ui->loadfile->setEnabled(true);
+        ui->textEditlog->append(QStringLiteral("=========结束检测=========\n"));
+
+    } else {
+        this->model->pauseVideoDetect();
+    }
+
 }
 
 
 void MainWindow::detectReport(const QPixmap &output)
 {
-    auto now = std::chrono::steady_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = now - time_last;
-    time_last = now;
-    ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsed.count()));
+    // 停止计时，并获取经过的时间（以毫秒为单位）
+    int elapsedTime = timer.elapsed();
+    current_frames++;
+    ui->textEditlog->append(QString("[%1] cost_time: %2 ms").arg(current_frames)
+                                .arg(elapsedTime));
 
     ui->label->setPixmap(output);
     ui->label->setScaledContents(true);
+
+    timer.start();
 }
 
 void MainWindow::playDone()
 {
-    ui->textEditlog->append(QString("Video has completed playing!"));
+    ui->startdetect->setEnabled(true);
+    ui->stopdetect->setEnabled(false);
+    ui->openfile->setEnabled(true);
+    ui->loadfile->setEnabled(true);
+    ui->textEditlog->append(QStringLiteral("=========结束检测=========\n"));
+    timer.elapsed();
+    current_frames = 0;
 }

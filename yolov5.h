@@ -1,9 +1,12 @@
 ﻿#ifndef YOLOV5_H
 #define YOLOV5_H
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/cuda.hpp>
 #include <QImage>
 #include <QPixmap>
 #include <QThread>
+
+// #include <iostream>
 
 class VideoDetectThread;
 
@@ -36,6 +39,7 @@ public:
 
     VideoDetectThread *thread;
     cv::VideoCapture *capture;
+    bool cudaEnableStatus;
 
 private:
 
@@ -62,6 +66,7 @@ public:
     ~VideoDetectThread();
     void configure(DetectModel *model_);
     void pauseThread();
+
 protected:
     void run() override; // 重写QThread类的虚函数，也是线程子类的入口函数
 signals:

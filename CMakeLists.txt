@@ -53,15 +53,41 @@ endif()
 
 target_link_libraries(gesture PRIVATE Qt5::Widgets)
 
-# add OpenCV library
-set(OpenCV_DIR "I:/OpenCV/build")
-find_package(OpenCV REQUIRED)
-message(STATUS "OpenCV version: ${OpenCV_VERSION}")
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
 
-# add OpenVINO library
-set(OpenVINO_DIR "C:/Program Files (x86)/Intel/openvino_2023.3.0/runtime/cmake")
-find_package(OpenVINO REQUIRED)
-message(STATUS "OpenVINO version: ${OpenVINO_VERSION}")
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenVINO_LIBS})
+# 检查构建生成器
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    # 使用MSVC构建时的设置
+    message(STATUS "Using MSVC generator")
+
+    # add_compile_options(/utf-8)
+    # 为 C 编译器添加 /utf-8 标志
+    string(APPEND CMAKE_C_FLAGS " /utf-8")
+    # 为 C++ 编译器添加 /utf-8 标志
+    string(APPEND CMAKE_CXX_FLAGS " /utf-8")
+
+    # add OpenCV library
+    set(OpenCV_DIR "I:/OpenCV/build-vc16-opencv480")
+    find_package(OpenCV REQUIRED)
+    message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+
+else()
+    # 使用MinGW构建时的设置
+    message(STATUS "Using MinGW generator")
+
+    # add OpenCV library
+    set(OpenCV_DIR "I:/OpenCV/build-mingw810-opencv480")
+    find_package(OpenCV REQUIRED)
+    message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+
+endif()
+
+
+
+# # add OpenVINO library
+# set(OpenVINO_DIR "C:/Program Files (x86)/Intel/openvino_2023.3.0/runtime/cmake")
+# find_package(OpenVINO REQUIRED)
+# message(STATUS "OpenVINO version: ${OpenVINO_VERSION}")
+# target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenVINO_LIBS})
 
