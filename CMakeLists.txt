@@ -40,6 +40,7 @@ if(ANDROID)
   )
 else()
   add_executable(gesture
+    WIN32   # 取消控制台窗口
     main.cpp
     mainwindow.cpp
     mainwindow.h
@@ -85,9 +86,11 @@ endif()
 
 
 
-# # add OpenVINO library
-# set(OpenVINO_DIR "C:/Program Files (x86)/Intel/openvino_2023.3.0/runtime/cmake")
-# find_package(OpenVINO REQUIRED)
-# message(STATUS "OpenVINO version: ${OpenVINO_VERSION}")
-# target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenVINO_LIBS})
+# add ONNX Runtime library
+# set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-gpu-1.12.0")
+# include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
+# link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
+# target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
+
+
 

@@ -1,7 +1,6 @@
 ﻿#include "yolov5.h"
 
 
-
 DetectModel::DetectModel()
 {
     this->config.input_width = 640;
@@ -35,6 +34,7 @@ void DetectModel::classNameConfig(std::vector<std::string> &classes)
 {
     this->class_name = classes;
 }
+
 
 bool DetectModel::loadOnnx(const char *onnxfile)
 {
@@ -134,24 +134,14 @@ void DetectModel::scale_boxes(cv::Rect& box, cv::Size size)
 }
 
 //可视化函数
-void draw_result(cv::Mat& image, std::string label, cv::Rect box)
-{
-    cv::rectangle(image, box, cv::Scalar(255, 0, 0), 2);
-    int baseLine;
-    cv::Size label_size = cv::getTextSize(label, 0.8, 0.8, 1, &baseLine);
-    cv::Point tlc = cv::Point(box.x, box.y);
-    cv::Point brc = cv::Point(box.x, box.y + label_size.height + baseLine);
-    cv::putText(image, label, cv::Point(box.x, box.y), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 1);
-}
-
 void DetectModel::draw_result(cv::Mat &image, std::string label, cv::Rect box)
 {
-    cv::rectangle(image, box, cv::Scalar(255, 0, 0), 2);
+    cv::rectangle(image, box, cv::Scalar(0, 0, 255), 2);
     int baseLine;
     cv::Size label_size = cv::getTextSize(label, 0.8, 0.8, 1, &baseLine);
     cv::Point tlc = cv::Point(box.x, box.y);
     cv::Point brc = cv::Point(box.x, box.y + label_size.height + baseLine);
-    cv::putText(image, label, cv::Point(box.x, box.y), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 1);
+    cv::putText(image, label, cv::Point(box.x, box.y), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 2);
 }
 
 
@@ -163,7 +153,7 @@ cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs,
 
     float* data = (float*)outputs[0].data;
 
-    const int dimensions = 10;  //5+5
+    const int dimensions = 5 + this->class_name.size();  // 5+class
     const int rows = 25200;		//(640/8)*(640/8)*3+(640/16)*(640/16)*3+(640/32)*(640/32)*3
     for (int i = 0; i < rows; ++i)
     {
@@ -280,16 +270,6 @@ void DetectModel::pauseVideoDetect()
 
 
 /* class DetectThread */
-
-VideoDetectThread::VideoDetectThread()
-{
-
-}
-
-VideoDetectThread::~VideoDetectThread()
-{
-
-}
 
 
 void VideoDetectThread::pauseThread()

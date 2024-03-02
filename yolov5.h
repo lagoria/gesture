@@ -6,7 +6,6 @@
 #include <QPixmap>
 #include <QThread>
 
-// #include <iostream>
 
 class VideoDetectThread;
 
@@ -62,8 +61,8 @@ class VideoDetectThread : public QThread
 {
     Q_OBJECT
 public:
-    explicit VideoDetectThread();
-    ~VideoDetectThread();
+    explicit VideoDetectThread() {}
+    ~VideoDetectThread() {}
     void configure(DetectModel *model_);
     void pauseThread();
 

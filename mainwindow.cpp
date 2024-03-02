@@ -2,13 +2,12 @@
 #include "ui_mainwindow.h"
 
 
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    setWindowTitle(QStringLiteral("目标手势检测软件"));
+    setWindowTitle(QStringLiteral("手势检测软件"));
 
     ui->startdetect->setEnabled(false);
     ui->stopdetect->setEnabled(false);
@@ -84,6 +83,8 @@ void MainWindow::on_openfile_clicked()
     }
 
 }
+
+
 
 void MainWindow::on_loadfile_clicked()
 {
