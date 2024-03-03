@@ -36,8 +36,35 @@ void DetectModel::classNameConfig(std::vector<std::string> &classes)
 }
 
 
+bool DetectModel::parseOnnxModel(const char *onnxfile)
+{
+    QString fileNamePath = onnxfile;
+    const wchar_t* model_path = reinterpret_cast<const wchar_t *>(fileNamePath.utf16());
+
+    Ort::Env env; // 创建env
+    Ort::Session session(nullptr); // 创建一个空会话
+    Ort::SessionOptions sessionOptions{ nullptr }; // 创建会话配置
+    session = Ort::Session(env, model_path, sessionOptions);
+
+    Ort::TypeInfo type_info_output0(nullptr);
+    type_info_output0 = session.GetOutputTypeInfo(0);  //output0
+
+    auto tensor_info_output0 = type_info_output0.GetTensorTypeAndShapeInfo();
+    this->output_shape = tensor_info_output0.GetShape();
+
+    if (output_shape.size() == 3) {
+        if (output_shape[2] == (this->class_name.size() + 5)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool DetectModel::loadOnnx(const char *onnxfile)
 {
+    if (! parseOnnxModel(onnxfile)) {
+        return false;
+    }
     this->net = cv::dnn::readNet(onnxfile);
     if (net.empty()) {
         return false;

@@ -93,10 +93,18 @@ void MainWindow::on_loadfile_clicked()
         return;
     }
     ui->statusbar->showMessage(onnxFile);
-    if (!model->loadOnnx(onnxFile.toLatin1().data())){
-        ui->textEditlog->append(QStringLiteral("加载模型失败！"));
+    bool status = model->loadOnnx(onnxFile.toLatin1().data());
+
+    QStringList stringList;
+    for (int64_t value : model->output_shape) {
+        stringList.append(QString::number(value)); // 将int64_t转换为QString
+    }
+    ui->textEditlog->append("Out shape:["+stringList.join(",")+"]");
+    if (!status) {
+        ui->textEditlog->append(QStringLiteral("模型输出维度不符！"));
         return;
     }
+
     ui->textEditlog->append(QString("OnnxFile opened succesfully!"));
 
     if (this->model->cudaEnableStatus) {

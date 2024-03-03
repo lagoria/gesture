@@ -85,12 +85,11 @@ else()
 endif()
 
 
-
 # add ONNX Runtime library
-# set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-gpu-1.12.0")
-# include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
-# link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
-# target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
+set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-win-x64-1.12.0")
+include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
+link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
 
 
 
