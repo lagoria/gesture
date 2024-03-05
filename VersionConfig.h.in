@@ -1,0 +1,13 @@
+#ifndef VERSION_CONFIG_H
+#define VERSION_CONFIG_H
+
+
+// the configured options and settings
+#define PROJECT_VERSION_MAJOR   @PROJECT_VERSION_MAJOR@
+#define PROJECT_VERSION_MINOR   @PROJECT_VERSION_MINOR@
+#define PROJECT_VERSION_PATCH   @PROJECT_VERSION_PATCH@
+
+#define BUILD_TIMESTAMP         "@COMPILE_TIME@"
+
+
+#endif

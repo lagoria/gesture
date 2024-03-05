@@ -16,7 +16,7 @@
 
 #include <yolov5.h>
 #include "eventgroup.h"
-
+#include "VersionConfig.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

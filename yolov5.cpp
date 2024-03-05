@@ -36,6 +36,7 @@ void DetectModel::classNameConfig(std::vector<std::string> &classes)
 }
 
 
+#ifndef USE_MINGW_COMPILER
 bool DetectModel::parseOnnxModel(const char *onnxfile)
 {
     QString fileNamePath = onnxfile;
@@ -59,12 +60,17 @@ bool DetectModel::parseOnnxModel(const char *onnxfile)
     }
     return false;
 }
+#endif
+
 
 bool DetectModel::loadOnnx(const char *onnxfile)
 {
+#ifndef USE_MINGW_COMPILER
     if (! parseOnnxModel(onnxfile)) {
         return false;
     }
+#endif
+
     this->net = cv::dnn::readNet(onnxfile);
     if (net.empty()) {
         return false;

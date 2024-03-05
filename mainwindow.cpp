@@ -16,6 +16,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(this->model->thread, &VideoDetectThread::reportProgress, this, &MainWindow::detectReport);
     connect(this->model->thread, &VideoDetectThread::done, this, &MainWindow::playDone);
+
+
+    // 使用宏定义的版本号
+    int major = PROJECT_VERSION_MAJOR;
+    int minor = PROJECT_VERSION_MINOR;
+    int patch = PROJECT_VERSION_PATCH;
+    ui->textEditlog->append(QString("Project Version: %1.%2.%3").arg(major).arg(minor).arg(patch));
 }
 
 MainWindow::~MainWindow()
@@ -95,11 +102,14 @@ void MainWindow::on_loadfile_clicked()
     ui->statusbar->showMessage(onnxFile);
     bool status = model->loadOnnx(onnxFile.toLatin1().data());
 
-    QStringList stringList;
-    for (int64_t value : model->output_shape) {
-        stringList.append(QString::number(value)); // 将int64_t转换为QString
+    if (model->output_shape.size() > 0) {
+        QStringList stringList;
+        for (int64_t value : model->output_shape) {
+            stringList.append(QString::number(value)); // 将int64_t转换为QString
+        }
+        ui->textEditlog->append("Out shape:["+stringList.join(",")+"]");
     }
-    ui->textEditlog->append("Out shape:["+stringList.join(",")+"]");
+
     if (!status) {
         ui->textEditlog->append(QStringLiteral("模型输出维度不符！"));
         return;

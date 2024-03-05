@@ -8,8 +8,13 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
 
+#include "VersionConfig.h"
+
+#ifndef USE_MINGW_COMPILER
 // ONNX Runtime
 #include <onnxruntime_cxx_api.h>
+#endif
+
 
 class VideoDetectThread;
 
@@ -58,8 +63,11 @@ public:
 
 private:
 
+#ifndef USE_MINGW_COMPILER
     // 解析onnx模型
     bool parseOnnxModel(const char *onnxfile);
+#endif
+
     // 检测预处理
     void pre_process(cv::Mat& image, cv::Mat& blob);
     // 检测后处理

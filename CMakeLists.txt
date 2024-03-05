@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(gesture LANGUAGES CXX)
+project(gesture LANGUAGES CXX VERSION 1.1.0)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -49,6 +49,7 @@ else()
     yolov5.h
     ${qrc_FILES}
     eventgroup.h eventgroup.cpp
+
   )
 endif()
 
@@ -67,17 +68,24 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     string(APPEND CMAKE_CXX_FLAGS " /utf-8")
 
     # add OpenCV library
-    set(OpenCV_DIR "I:/OpenCV/build-vc16-opencv480")
+    set(OpenCV_DIR "I:/Library/opencv-vc16-4.8.0")
     find_package(OpenCV REQUIRED)
     message(STATUS "OpenCV version: ${OpenCV_VERSION}")
     target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
 
+    # add ONNX Runtime library
+    set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-vc16-1.12.0")
+    include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
+    link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
+
 else()
     # 使用MinGW构建时的设置
+    add_compile_definitions(USE_MINGW_COMPILER)
     message(STATUS "Using MinGW generator")
 
     # add OpenCV library
-    set(OpenCV_DIR "I:/OpenCV/build-mingw810-opencv480")
+    set(OpenCV_DIR "I:/Library/opencv-mingw-4.8.0")
     find_package(OpenCV REQUIRED)
     message(STATUS "OpenCV version: ${OpenCV_VERSION}")
     target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
@@ -85,11 +93,12 @@ else()
 endif()
 
 
-# add ONNX Runtime library
-set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-win-x64-1.12.0")
-include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
-link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
+# 工程版本参数配置
+string(TIMESTAMP COMPILE_TIME %Y%m%d-%H%M%S)
+configure_file(VersionConfig.h.in VersionConfig.h)
+# 添加VersionConfig.h文件
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_BINARY_DIR})
+
 
 
 
