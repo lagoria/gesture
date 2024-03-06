@@ -12,7 +12,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->startdetect->setEnabled(false);
     ui->stopdetect->setEnabled(false);
     this->model = new DetectModel();
-    this->model->classNameConfig(class_name);
 
     connect(this->model->thread, &VideoDetectThread::reportProgress, this, &MainWindow::detectReport);
     connect(this->model->thread, &VideoDetectThread::done, this, &MainWindow::playDone);
@@ -100,33 +99,47 @@ void MainWindow::on_loadfile_clicked()
         return;
     }
     ui->statusbar->showMessage(onnxFile);
-    bool status = model->loadOnnx(onnxFile.toLatin1().data());
+    int status = model->loadOnnxModel(onnxFile.toLatin1().data());
 
-    if (model->output_shape.size() > 0) {
+    switch (status) {
+    case DetectModel::STATUS_MODEL_INVALID:
+        ui->textEditlog->append(QStringLiteral("模型类型不符！"));
+        break;
+    case DetectModel::STATUS_LABEL_INVALID:
+        ui->textEditlog->append(QStringLiteral("模型标签获取失败！"));
+        break;
+    case DetectModel::STATUS_FILE_INVALID:
+        ui->textEditlog->append(QStringLiteral("模型打开失败！"));
+        break;
+    case DetectModel::STATUS_PROCESS_OK: {
+        ui->textEditlog->append(QString("OnnxFile opened succesfully!"));
         QStringList stringList;
         for (int64_t value : model->output_shape) {
             stringList.append(QString::number(value)); // 将int64_t转换为QString
         }
         ui->textEditlog->append("Out shape:["+stringList.join(",")+"]");
+
+        QStringList labels;
+        for (const std::string &name : model->output_labels) {
+            labels.append(name.c_str());
+        }
+        ui->textEditlog->append("class name:["+labels.join(",")+"]");
+
+        if (this->model->cudaEnableStatus) {
+            ui->textEditlog->append(QString("Use the CUDA inference!"));
+        } else {
+            ui->textEditlog->append(QString("Use the CPU inference!"));
+        }
+        // 判断事件条件，启动预测按钮
+        event_group.setBits(OPENED_ONNX_EVT);
+        if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
+            ui->startdetect->setEnabled(true);
+        }
+        break;
+    }
+    default : break;
     }
 
-    if (!status) {
-        ui->textEditlog->append(QStringLiteral("模型输出维度不符！"));
-        return;
-    }
-
-    ui->textEditlog->append(QString("OnnxFile opened succesfully!"));
-
-    if (this->model->cudaEnableStatus) {
-        ui->textEditlog->append(QString("Use the CUDA inference!"));
-    } else {
-        ui->textEditlog->append(QString("Use the CPU inference!"));
-    }
-    // 判断事件条件，启动预测按钮
-    event_group.setBits(OPENED_ONNX_EVT);
-    if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
-        ui->startdetect->setEnabled(true);
-    }
 }
 
 void MainWindow::on_startdetect_clicked()

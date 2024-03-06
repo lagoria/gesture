@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(gesture LANGUAGES CXX VERSION 1.1.0)
+project(gesture LANGUAGES CXX VERSION 1.1.1)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -48,7 +48,8 @@ else()
     yolov5.cpp
     yolov5.h
     ${qrc_FILES}
-    eventgroup.h eventgroup.cpp
+    eventgroup.h
+    eventgroup.cpp
 
   )
 endif()
@@ -61,7 +62,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     # 使用MSVC构建时的设置
     message(STATUS "Using MSVC generator")
 
-    # add_compile_options(/utf-8)
+    add_compile_options(/utf-8)
     # 为 C 编译器添加 /utf-8 标志
     string(APPEND CMAKE_C_FLAGS " /utf-8")
     # 为 C++ 编译器添加 /utf-8 标志

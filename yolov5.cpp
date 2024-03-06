@@ -30,14 +30,8 @@ void DetectModel::thresholdConfig(modelConfig_t &conf)
 }
 
 
-void DetectModel::classNameConfig(std::vector<std::string> &classes)
-{
-    this->class_name = classes;
-}
-
-
 #ifndef USE_MINGW_COMPILER
-bool DetectModel::parseOnnxModel(const char *onnxfile)
+int DetectModel::parseOnnxModel(const char *onnxfile)
 {
     QString fileNamePath = onnxfile;
     const wchar_t* model_path = reinterpret_cast<const wchar_t *>(fileNamePath.utf16());
@@ -45,35 +39,79 @@ bool DetectModel::parseOnnxModel(const char *onnxfile)
     Ort::Env env; // 创建env
     Ort::Session session(nullptr); // 创建一个空会话
     Ort::SessionOptions sessionOptions{ nullptr }; // 创建会话配置
+    Ort::AllocatorWithDefaultOptions allocator;
     session = Ort::Session(env, model_path, sessionOptions);
 
-    Ort::TypeInfo type_info_output0(nullptr);
-    type_info_output0 = session.GetOutputTypeInfo(0);  //output0
+    // 检测模型输出
+    if (session.GetOutputCount() == 1) {
+        // 保存模型输出维度
+        this->output_shape.clear();
+        this->output_shape = session.GetOutputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
+    } else {
+        return STATUS_MODEL_INVALID;      // 模型类型不符
+    }
 
-    auto tensor_info_output0 = type_info_output0.GetTensorTypeAndShapeInfo();
-    this->output_shape = tensor_info_output0.GetShape();
+    // 获取模型元数据
+    Ort::ModelMetadata model_metadata = session.GetModelMetadata();
 
-    if (output_shape.size() == 3) {
-        if (output_shape[2] == (this->class_name.size() + 5)) {
-            return true;
+    // 获取标签名
+    int64_t num_elements;
+    char** data_keys = model_metadata.GetCustomMetadataMapKeys(allocator, num_elements);
+
+    for (int64_t i = 0; i < num_elements; ++i) {
+        // 在元数据中找到 names 的键值
+        if (QString(data_keys[i]) == QString("names")) {
+            this->output_labels.clear();
+            std::string label_names = model_metadata.LookupCustomMetadataMap(data_keys[i], allocator);
+            // 移除开头的'{'和结尾的'}'
+            label_names.erase(0, 1); // 移除'{'
+            label_names.pop_back();  // 移除'}'
+
+            // 使用stringstream和getline来分割字符串
+            std::stringstream ss(label_names);
+            std::string item;
+            while (std::getline(ss, item, ',')) {
+                // 移除每个键值对中的冒号及其前面的部分
+                size_t colonPos = item.find(':');
+                if (colonPos != std::string::npos) {
+                    item.erase(0, colonPos + 1); // 移除冒号及其前面的部分
+                }
+
+                // 移除可能存在的空格
+                item.erase(std::remove(item.begin(), item.end(), ' '), item.end());
+
+                // 将处理后的值添加到vector中
+                this->output_labels.push_back(item);
+            }
+            allocator.Free(data_keys[i]);
+            break;
         }
     }
-    return false;
+    allocator.Free(data_keys);
+
+    if ((this->output_labels.size() + 5) == this->output_shape[2]) {
+        return STATUS_PROCESS_OK;         // 模型信息获取成功
+    }
+
+
+    return STATUS_LABEL_INVALID;      // 模型标签读取失败
 }
 #endif
 
 
-bool DetectModel::loadOnnx(const char *onnxfile)
+int DetectModel::loadOnnxModel(const char *onnxfile)
 {
+    int result = STATUS_PROCESS_OK;
 #ifndef USE_MINGW_COMPILER
-    if (! parseOnnxModel(onnxfile)) {
-        return false;
+    result = parseOnnxModel(onnxfile);
+    if (result != STATUS_PROCESS_OK) {
+        return result;
     }
 #endif
 
     this->net = cv::dnn::readNet(onnxfile);
     if (net.empty()) {
-        return false;
+        return STATUS_FILE_INVALID;
     }
     int device_count = cv::cuda::getCudaEnabledDeviceCount();
     if (device_count >= 1){
@@ -83,7 +121,7 @@ bool DetectModel::loadOnnx(const char *onnxfile)
     }else{
         cudaEnableStatus = false;
     }
-    return true;
+    return result;
 }
 
 // LetterBox处理
@@ -178,7 +216,7 @@ void DetectModel::draw_result(cv::Mat &image, std::string label, cv::Rect box)
 }
 
 
-cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs, std::vector<std::string> &class_name)
+cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs, std::vector<std::string> &output_labels)
 {
     std::vector<int> class_ids;
     std::vector<float> confidences;
@@ -186,7 +224,7 @@ cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs,
 
     float* data = (float*)outputs[0].data;
 
-    const int dimensions = 5 + this->class_name.size();  // 5+class
+    const int dimensions = 5 + this->output_labels.size();  // 5+class
     const int rows = 25200;		//(640/8)*(640/8)*3+(640/16)*(640/16)*3+(640/32)*(640/32)*3
     for (int i = 0; i < rows; ++i)
     {
@@ -194,7 +232,7 @@ cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs,
         if (confidence >= this->config.confidence_threshold)
         {
             float* classes_scores = data + 5;
-            cv::Mat scores(1, class_name.size(), CV_32FC1, classes_scores);
+            cv::Mat scores(1, output_labels.size(), CV_32FC1, classes_scores);
             cv::Point class_id;
             double max_class_score;
             cv::minMaxLoc(scores, 0, &max_class_score, 0, &class_id);
@@ -224,7 +262,7 @@ cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs,
     {
         int idx = indices[i];
         cv::Rect box = boxes[idx];
-        std::string label = class_name[class_ids[idx]] + ":" + cv::format("%.2f", confidences[idx]);
+        std::string label = output_labels[class_ids[idx]] + ":" + cv::format("%.2f", confidences[idx]);
         draw_result(image, label, box);
     }
     return image;
@@ -254,7 +292,7 @@ QPixmap DetectModel::frameDetect(cv::Mat frame)
     this->net.setInput(blob);
     this->net.forward(outputs, net.getUnconnectedOutLayersNames());
 
-    cv::Mat result = this->post_process(frame, outputs, this->class_name);
+    cv::Mat result = this->post_process(frame, outputs, this->output_labels);
     return cvMatToQPixmap(result);
 }
 

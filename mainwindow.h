@@ -52,7 +52,6 @@ private slots:
 
 
 private:
-    std::vector<std::string> class_name = {"0", "1", "2", "3", "5"};
     Ui::MainWindow *ui;
     QElapsedTimer timer;
     DetectModel *model;
