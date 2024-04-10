@@ -1,6 +1,6 @@
 # gesture
 
-A image gesture detection Qt application
+A image hand gesture number detection of Qt application
 
 # Environment
 
@@ -16,12 +16,29 @@ A image gesture detection Qt application
 
 - surported picture and video (.mp4, .avi)
 
-- gesture characteristic:
+- gesture model characteristic:
 
-| class | name |
-|:-----:|:----:|
-| 0     | 拳    |
-| 1     | 一    |
-| 2     | 二    |
-| 3     | 三    |
-| 4     | 五    |
+| class | name  |
+|:-----:|:-----:|
+| 0     | fist  |
+| 1     | one   |
+| 2     | two   |
+| 3     | three |
+| 4     | five  |
+| 5     | four  |
+
+## asset
+
+### model
+
+a gesture detect onnx model
+
+- gesture.onnx
+
+
+
+### release
+
+a gesture detect softwate
+
+- gesture_boxed.exe
