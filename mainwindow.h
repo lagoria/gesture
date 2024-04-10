@@ -6,9 +6,6 @@
 #include <QTimer>
 #include <QImage>
 #include <QPixmap>
-#include <QDateTime>
-#include <QMutex>
-#include <QMutexLocker>
 #include <QMimeDatabase>
 #include <iostream>
 #include <QElapsedTimer>
@@ -57,7 +54,6 @@ private:
     DetectModel *model;
     QString filename;
     EventGroup event_group;
-    unsigned long current_frames = 0;
 
 };
 #endif // MAINWINDOW_H

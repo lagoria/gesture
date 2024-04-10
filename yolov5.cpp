@@ -3,6 +3,7 @@
 
 DetectModel::DetectModel()
 {
+    // default param settings
     this->config.input_width = 640;
     this->config.input_height = 640;
     this->config.score_threshold = 0.5;
@@ -11,7 +12,7 @@ DetectModel::DetectModel()
 
     cudaEnableStatus = false;
 
-    this->start_frame = 0;
+    this->display_size = QSize(640, 480);
 
     this->thread = new VideoDetectThread();
     this->capture = new cv::VideoCapture();
@@ -79,6 +80,12 @@ int DetectModel::parseOnnxModel(const char *onnxfile)
 
                 // 移除可能存在的空格
                 item.erase(std::remove(item.begin(), item.end(), ' '), item.end());
+
+                // 检查是否有单引号
+                if (item.front() == '\'' && item.back() == '\'') {
+                    item.erase(0, 1); // 去除开头的单引号
+                    item.erase(item.length() - 1, 1);   // 去除结尾的单引号
+                }
 
                 // 将处理后的值添加到vector中
                 this->output_labels.push_back(item);
@@ -225,7 +232,7 @@ cv::Mat DetectModel::post_process(cv::Mat &image, std::vector<cv::Mat> &outputs,
     float* data = (float*)outputs[0].data;
 
     const int dimensions = 5 + this->output_labels.size();  // 5+class
-    const int rows = 25200;		//(640/8)*(640/8)*3+(640/16)*(640/16)*3+(640/32)*(640/32)*3
+    const int rows = output_shape[1];		//(640/8)*(640/8)*3+(640/16)*(640/16)*3+(640/32)*(640/32)*3
     for (int i = 0; i < rows; ++i)
     {
         float confidence = data[4];
@@ -283,16 +290,63 @@ QPixmap DetectModel::cvMatToQPixmap(const cv::Mat &cvMat)
 }
 
 
+cv::Mat DetectModel::resizeImage(const cv::Mat &image, int maxWidth, int maxHeight)
+{
+    int height = image.rows;
+    int width = image.cols;
+
+    // 计算原始长宽比
+    double ratio = static_cast<double>(width) / height;
+
+    // 根据最大宽度和高度确定缩放后的尺寸
+    if (width > maxWidth || height > maxHeight) {
+        if (ratio > 1.0) {
+            width = maxWidth;
+            height = static_cast<int>(width / ratio);
+        } else {
+            height = maxHeight;
+            width = static_cast<int>(height * ratio);
+        }
+
+        // 如果计算后的高度或宽度仍然超出限制，则取最大限制值
+        if (height > maxHeight) {
+            height = maxHeight;
+            width = static_cast<int>(height * ratio);
+        }
+        if (width > maxWidth) {
+            width = maxWidth;
+            height = static_cast<int>(width / ratio);
+        }
+    }
+
+    // 创建缩放后的图像矩阵
+    cv::Mat resizedImage(height, width, image.type());
+
+    // 使用cv::resize进行缩放
+    cv::resize(image, resizedImage, resizedImage.size());
+
+    return resizedImage;
+}
+
+void DetectModel::imageOutSizeConfig(QSize size)
+{
+    this->display_size = size;
+}
+
+
 QPixmap DetectModel::frameDetect(cv::Mat frame)
 {
     cv::Mat blob;
-    this->pre_process(frame, blob);
-
     std::vector<cv::Mat> outputs;
+
+    cv::Mat resizedImage = this->resizeImage(frame, this->display_size.width(), this->display_size.height());
+    this->pre_process(resizedImage, blob);
+
+
     this->net.setInput(blob);
     this->net.forward(outputs, net.getUnconnectedOutLayersNames());
 
-    cv::Mat result = this->post_process(frame, outputs, this->output_labels);
+    cv::Mat result = this->post_process(resizedImage, outputs, this->output_labels);
     return cvMatToQPixmap(result);
 }
 
@@ -305,6 +359,12 @@ QPixmap DetectModel::pictureDetect(const char *file)
     return result;
 }
 
+
+void DetectModel::pictureThreadDetect(const char *file)
+{
+    this->thread->picture_path = file;
+}
+
 bool DetectModel::openVideo(const char *file)
 {
     if (this->capture->isOpened()) {
@@ -314,8 +374,18 @@ bool DetectModel::openVideo(const char *file)
     if (!this->capture->isOpened()){
         return false;
     }
-    this->start_frame = 0;
     return true;
+}
+
+
+QPixmap DetectModel::readVideoFirstFrame()
+{
+    cv::Mat frame;
+    this->capture->read(frame);
+    cv::Mat resizedImage = this->resizeImage(frame, this->display_size.width(), this->display_size.height());
+    this->setVideoStartFrame(0);
+
+    return cvMatToQPixmap(resizedImage);
 }
 
 
@@ -323,48 +393,45 @@ void DetectModel::setVideoStartFrame(unsigned long startPoint)
 {
     long totalFrame = this->capture->get(cv::CAP_PROP_FRAME_COUNT);
     if (startPoint < totalFrame) {
-        this->start_frame = startPoint;
+        this->capture->set(cv::CAP_PROP_POS_FRAMES, startPoint);
     }
 }
 
-void DetectModel::startVideoDetect()
+void DetectModel::startThreadDetect()
 {
-    this->capture->set(cv::CAP_PROP_POS_FRAMES, this->start_frame);
-    this->thread->configure(this);
+    this->thread->model = this;
     this->thread->start();
 }
 
-void DetectModel::pauseVideoDetect()
+void DetectModel::pauseThreadDetect()
 {
-    this->thread->pauseThread();
+    this->thread->pause_flag = true;
 }
 
 
 /* class DetectThread */
 
 
-void VideoDetectThread::pauseThread()
-{
-    pauseFlag = true;
-}
-
-void VideoDetectThread::configure(DetectModel *model_)
-{
-    this->model = model_;
-}
-
 void VideoDetectThread::run()
 {
     cv::Mat frame;
-    pauseFlag = false;
-    while (this->model->capture->read(frame)) {
+    pause_flag = false;
+    if (this->picture_path.empty() == false) {
+        frame = cv::imread(cv::String(this->picture_path));
         QPixmap output = this->model->frameDetect(frame);
         emit reportProgress(output);
+        this->picture_path.clear();
+    } else {
+        while (this->model->capture->read(frame)) {
+            QPixmap output = this->model->frameDetect(frame);
+            emit reportProgress(output);
 
-        if (pauseFlag == true) {
-            break;
+            if (pause_flag == true) {
+                break;
+            }
         }
     }
+
 
     emit done();
 }

@@ -7,14 +7,11 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
 
-#include "VersionConfig.h"
-
 #ifndef USE_MINGW_COMPILER
 // ONNX Runtime
 #include <onnxruntime_cxx_api.h>
 #endif
 
-#include "QDebug"
 
 class VideoDetectThread;
 
@@ -43,52 +40,145 @@ public:
     DetectModel();      // 构造函数
     ~DetectModel();     // 析构函数
 
-    // 加载ONNX模型
+    /**
+     * @brief loadOnnxModel 加载ONNX模型
+     * @param onnxfile 文件路径
+     * @return 0：成功，其他：失败
+     */
     int loadOnnxModel(const char* onnxfile);
-    // 配置模型阈值
+
+    /**
+     * @brief thresholdConfig 配置模型阈值
+     * @param conf 配置结构体
+     */
     void thresholdConfig(modelConfig_t &conf);
-    // 检测一张图片
+
+    /**
+     * @brief imageOutSizeConfig 配置图像输出大小
+     * @param size 大小
+     */
+    void imageOutSizeConfig(QSize size);
+
+    /**
+     * @brief pictureDetect 检测一张图片
+     * @param file 图片路径
+     * @return
+     */
     QPixmap pictureDetect(const char *file);
-    // 打开视频文件
+
+    /**
+     * @brief pictureThreadDetect 在线程中检测一张图片
+     * @param file 图片路径
+     */
+    void pictureThreadDetect(const char *file);
+
+    /**
+     * @brief openVideo 打开视频文件
+     * @param file 文件路径
+     * @return
+     */
     bool openVideo(const char *file);
-    // 设置视频开始帧起点
+
+    /**
+     * @brief readVideoFirstFrame 读取视频的第一帧
+     * @return 输出图片
+     */
+    QPixmap readVideoFirstFrame();
+
+    /**
+     * @brief setVideoStartFrame 设置视频开始帧起点
+     * @param startPoint 起始点
+     */
     void setVideoStartFrame(unsigned long startPoint);
-    // 开始视频检测
-    void startVideoDetect();
-    // 中止视频检测
-    void pauseVideoDetect();
 
-    // 图像帧检测
-    QPixmap frameDetect(cv::Mat frame);
+    /**
+     * @brief startThreadDetect 开始线程检测
+     */
+    void startThreadDetect();
 
+    /**
+     * @brief pauseThreadDetect 中止线程检测
+     */
+    void pauseThreadDetect();
+
+
+    friend class VideoDetectThread;         // 申明友元类
     VideoDetectThread *thread;              // 视频检测线程
-    cv::VideoCapture *capture;              // 视频抓取器
     std::vector<int64_t> output_shape;      // 模型输出形状
-    std::vector<std::string> output_labels;    // 模型输出类名
+    std::vector<std::string> output_labels; // 模型输出类名
     bool cudaEnableStatus;                  // CUDA使能状态
 
 private:
 
 #ifndef USE_MINGW_COMPILER
-    // 解析onnx模型
+    /**
+     * @brief parseOnnxModel 解析ONNX模型文件，获取信息
+     * @param onnxfile  文件路径
+     * @return 解析结果
+     */
     int parseOnnxModel(const char *onnxfile);
 #endif
 
-    // 检测预处理
+    //
+    /**
+     * @brief pre_process 检测预处理
+     * @param image 图像输入
+     * @param blob 处理输出
+     */
     void pre_process(cv::Mat& image, cv::Mat& blob);
-    // 检测后处理
+    //
+    /**
+     * @brief post_process 检测后处理
+     * @param image 源图像
+     * @param outputs 检测输出图像
+     * @param output_labels 输出标签
+     * @return 输出图像
+     */
     cv::Mat post_process(cv::Mat& image, std::vector<cv::Mat>& outputs,
                          std::vector<std::string> &output_labels);
-    // 缩放检测框
+
+    /**
+     * @brief scale_boxes 缩放检测框
+     * @param box 框
+     * @param size 大小
+     */
     void scale_boxes(cv::Rect& box, cv::Size size);
-    // 绘制检测结果
+
+    /**
+     * @brief draw_result 绘制检测结果
+     * @param image 图像
+     * @param label 标签
+     * @param box 检测框
+     */
     void draw_result(cv::Mat& image, std::string label, cv::Rect box);
-    // 转化cv::Mat 到 QPixmap
+
+    /**
+     * @brief cvMatToQPixmap 转化cv::Mat 到 QPixmap
+     * @param cvMat 源图像
+     * @return 转化后图像
+     */
     QPixmap cvMatToQPixmap(const cv::Mat &cvMat);
+
+    /**
+     * @brief resizeImage 图像缩放
+     * @param image 图像
+     * @param maxWidth 缩放最大宽度
+     * @param maxHeight 缩放最大高度
+     * @return 缩放后图像
+     */
+    cv::Mat resizeImage(const cv::Mat &image, int maxWidth, int maxHeight);
+
+    /**
+     * @brief frameDetect 图像帧检测
+     * @param frame 图像帧
+     * @return
+     */
+    QPixmap frameDetect(cv::Mat frame);
 
     modelConfig_t config;                   // 模型配置
     cv::dnn::Net net;                       // 模型
-    unsigned long start_frame;              // 视频帧起点
+    cv::VideoCapture *capture;              // 视频抓取器
+    QSize display_size;                     // 图像输出大小
 
 };
 
@@ -99,9 +189,8 @@ class VideoDetectThread : public QThread
 public:
     explicit VideoDetectThread() {}
     ~VideoDetectThread() {}
-    void configure(DetectModel *model_);
-    void pauseThread();
 
+    friend class DetectModel;         // 申明友元类
 protected:
     void run() override; // 重写QThread类的虚函数，也是线程子类的入口函数
 signals:
@@ -110,7 +199,8 @@ signals:
 
 private:
     DetectModel *model;
-    bool pauseFlag = false;
+    bool pause_flag = false;
+    std::string picture_path;
 };
 
 
