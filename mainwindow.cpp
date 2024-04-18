@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     int patch = PROJECT_VERSION_PATCH;
     ui->textEditlog->append(QString("Project Version: %1.%2.%3").arg(major).arg(minor).arg(patch));
 
-#ifdef USE_MINGW_COMPILER
+#ifndef USE_ONNXRUNTIME_LIB
     // 配置模型输出信息
     this->inference->classes = {"fist", "one", "two", "three", "five", "four"};
 #endif

@@ -11,7 +11,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
 
-#ifndef USE_MINGW_COMPILER
+#ifdef USE_ONNXRUNTIME_LIB
 // ONNX Runtime
 #include <onnxruntime_cxx_api.h>
 #endif

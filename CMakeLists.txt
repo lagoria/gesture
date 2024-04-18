@@ -69,21 +69,22 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     string(APPEND CMAKE_CXX_FLAGS " /utf-8")
 
     # add OpenCV library
-    set(OpenCV_DIR "I:/Library/opencv-msvc16-4.7.0")
+    set(OpenCV_DIR "I:/Library/opencv-msvc16-4.9.0")
     find_package(OpenCV REQUIRED)
     message(STATUS "OpenCV version: ${OpenCV_VERSION}")
     target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
 
     # add ONNX Runtime library
-    set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-vc16-1.12.0")
+    set(ONNXRUNTIME_ROOT_PATH "I:/Library/onnxruntime-1.17.3")
     include_directories(${ONNXRUNTIME_ROOT_PATH}/include)
     link_directories(${ONNXRUNTIME_ROOT_PATH}/lib)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${ONNXRUNTIME_ROOT_PATH}/lib/onnxruntime.lib)
+    # add ONNXRUNTIME define
+    add_compile_definitions(USE_ONNXRUNTIME_LIB)
 
 else()
     # 使用MinGW构建时的设置
-    add_compile_definitions(USE_MINGW_COMPILER)
-    message(STATUS "Using MinGW generator")
+    message(STATUS "Using ${CMAKE_CXX_COMPILER_ID} generator")
 
     # add OpenCV library
     set(OpenCV_DIR "I:/Library/opencv-mingw-4.8.0")

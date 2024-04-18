@@ -31,18 +31,18 @@ void InferenceEngine::thresholdConfig(modelConfig_t &conf)
     this->config = conf;
 }
 
-
-#ifndef USE_MINGW_COMPILER
+#ifdef USE_ONNXRUNTIME_LIB
 int InferenceEngine::parseOnnxModel(const std::string &onnxfile)
 {
     QString fileNamePath = QString::fromStdString(onnxfile);
     const wchar_t* model_path = reinterpret_cast<const wchar_t *>(fileNamePath.utf16());
 
-    Ort::Env env; // 创建env
-    Ort::Session session(nullptr); // 创建一个空会话
-    Ort::SessionOptions sessionOptions{ nullptr }; // 创建会话配置
+    Ort::Env env;                                   // 创建env
+    Ort::Session session(nullptr);                  // 创建一个空会话
+    Ort::SessionOptions sessionOptions(nullptr);    // 创建会话配置
     Ort::AllocatorWithDefaultOptions allocator;
     session = Ort::Session(env, model_path, sessionOptions);
+
 
     // 检测模型输出
     if (session.GetOutputCount() == 1) {
@@ -53,49 +53,48 @@ int InferenceEngine::parseOnnxModel(const std::string &onnxfile)
         return STATUS_MODEL_INVALID;      // 模型类型不符
     }
 
+
     // 获取模型元数据
     Ort::ModelMetadata model_metadata = session.GetModelMetadata();
 
+
     // 获取标签名
-    int64_t num_elements;
-    char** data_keys = model_metadata.GetCustomMetadataMapKeys(allocator, num_elements);
+    Ort::AllocatedStringPtr names_ptr = model_metadata.LookupCustomMetadataMapAllocated("names", allocator);
+    if (names_ptr != nullptr) {
+        this->classes.clear();
+        std::string label_names = names_ptr.get();
+        // 移除开头的'{'和结尾的'}'
+        label_names.erase(0, 1); // 移除'{'
+        label_names.pop_back();  // 移除'}'
 
-    for (int64_t i = 0; i < num_elements; ++i) {
-        // 在元数据中找到 names 的键值
-        if (QString(data_keys[i]) == QString("names")) {
-            this->classes.clear();
-            std::string label_names = model_metadata.LookupCustomMetadataMap(data_keys[i], allocator);
-            // 移除开头的'{'和结尾的'}'
-            label_names.erase(0, 1); // 移除'{'
-            label_names.pop_back();  // 移除'}'
 
-            // 使用stringstream和getline来分割字符串
-            std::stringstream ss(label_names);
-            std::string item;
-            while (std::getline(ss, item, ',')) {
-                // 移除每个键值对中的冒号及其前面的部分
-                size_t colonPos = item.find(':');
-                if (colonPos != std::string::npos) {
-                    item.erase(0, colonPos + 1); // 移除冒号及其前面的部分
-                }
-
-                // 移除可能存在的空格
-                item.erase(std::remove(item.begin(), item.end(), ' '), item.end());
-
-                // 检查是否有单引号
-                if (item.front() == '\'' && item.back() == '\'') {
-                    item.erase(0, 1); // 去除开头的单引号
-                    item.erase(item.length() - 1, 1);   // 去除结尾的单引号
-                }
-
-                // 将处理后的值添加到vector中
-                this->classes.push_back(item);
+        // 使用stringstream和getline来分割字符串
+        std::stringstream ss(label_names);
+        std::string item;
+        while (std::getline(ss, item, ',')) {
+            // 移除每个键值对中的冒号及其前面的部分
+            size_t colonPos = item.find(':');
+            if (colonPos != std::string::npos) {
+                item.erase(0, colonPos + 1); // 移除冒号及其前面的部分
             }
-            allocator.Free(data_keys[i]);
-            break;
+
+
+            // 移除可能存在的空格
+            item.erase(std::remove(item.begin(), item.end(), ' '), item.end());
+
+
+            // 检查是否有单引号
+            if (item.front() == '\'' && item.back() == '\'') {
+                item.erase(0, 1); // 去除开头的单引号
+                item.erase(item.length() - 1, 1);   // 去除结尾的单引号
+            }
+
+
+            // 将处理后的值添加到vector中
+            this->classes.push_back(item);
         }
     }
-    allocator.Free(data_keys);
+
 
     int result;
     if ((this->classes.size() + 5) == this->output_shape[2]) {
@@ -109,7 +108,6 @@ int InferenceEngine::parseOnnxModel(const std::string &onnxfile)
         this->model_type = MODEL_TYPE_UNKNOWN;
     }
 
-
     return result;
 }
 #endif
@@ -118,7 +116,7 @@ int InferenceEngine::parseOnnxModel(const std::string &onnxfile)
 int InferenceEngine::loadOnnxModel(const std::string &onnxfile)
 {
     int result = STATUS_PROCESS_OK;
-#ifndef USE_MINGW_COMPILER
+#ifdef USE_ONNXRUNTIME_LIB
     result = parseOnnxModel(onnxfile);
     if (result != STATUS_PROCESS_OK) {
         return result;
