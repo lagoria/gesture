@@ -1,4 +1,4 @@
-# gesture
+# Gesture
 
 A image hand gesture number detection of Qt application
 
@@ -6,13 +6,13 @@ A image hand gesture number detection of Qt application
 
 - Windows 10 x64
 - Qt5.15.2
-- OpenCV 4.8.0
-- ONNX Runtime 1.12.0
+- OpenCV >= 4.7.0
+- ONNX Runtime 1.17.3
 - VC16 or MinGW 8.10
 
-# feature
+# Feature
 
-- use for yolov5 export onnx detection model
+- supported YOLOv5  and YOLOv8 export onnx detection model
 
 - surported picture and video (.mp4, .avi)
 
@@ -27,18 +27,6 @@ A image hand gesture number detection of Qt application
 | 4     | five  |
 | 5     | four  |
 
-## asset
+## Attention
 
-### model
-
-a gesture detect onnx model
-
-- gesture.onnx
-
-
-
-### release
-
-a gesture detect softwate
-
-- gesture_boxed.exe
+when OpenCV >= 4.8.0 the YOLOv8 onnx model inference  boxs always 0 use the CUDA. And OpenCV == 4.7.0, the YOLOv5 onnx model inference ineffectiveness use the CPU
