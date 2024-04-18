@@ -11,7 +11,7 @@
 #include <QElapsedTimer>
 #include <QThread>
 
-#include <yolov5.h>
+#include <inferenceEngine.h>
 #include "eventgroup.h"
 #include "VersionConfig.h"
 
@@ -51,7 +51,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
     QElapsedTimer timer;
-    DetectModel *model;
+    InferenceEngine *inference;
     QString filename;
     EventGroup event_group;
 

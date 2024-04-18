@@ -1,8 +1,12 @@
-﻿#ifndef YOLOV5_H
-#define YOLOV5_H
+#ifndef InferenceEngine_H
+#define InferenceEngine_H
+// Cpp native
+#include <string>
+// Qt
 #include <QImage>
 #include <QPixmap>
 #include <QThread>
+#include <QDebug>
 // OpenCV
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -13,18 +17,24 @@
 #endif
 
 
-class VideoDetectThread;
+class InferenceThread;
 
 
-class DetectModel
+class InferenceEngine
 {
 public:
 
     enum {
+        // model parse status
         STATUS_MODEL_INVALID = -3,
         STATUS_LABEL_INVALID,
         STATUS_FILE_INVALID,
         STATUS_PROCESS_OK = 0,
+
+        // model type
+        MODEL_TYPE_UNKNOWN,
+        MODEL_TYPE_YOLOV5,
+        MODEL_TYPE_YOLOV8,
     };
 
     // 模型配置结构
@@ -33,19 +43,30 @@ public:
         int input_width;
         int input_height;
         float score_threshold;
-        float nms_threshold;
+        float nms_threshold;            // 非极大值抑制（Non-Maximum Suppression，NMS）
         float confidence_threshold;
+        bool enable_cuda;
     } modelConfig_t;
 
-    DetectModel();      // 构造函数
-    ~DetectModel();     // 析构函数
+    // 推理检测输出结构
+    struct DetectResult
+    {
+        int class_id{0};
+        std::string className{};
+        float confidence{0.0};
+        cv::Rect box{};
+    };
+
+
+    InferenceEngine();      // 构造函数
+    ~InferenceEngine();     // 析构函数
 
     /**
      * @brief loadOnnxModel 加载ONNX模型
      * @param onnxfile 文件路径
      * @return 0：成功，其他：失败
      */
-    int loadOnnxModel(const char* onnxfile);
+    int loadOnnxModel(const std::string &onnxfile);
 
     /**
      * @brief thresholdConfig 配置模型阈值
@@ -64,20 +85,20 @@ public:
      * @param file 图片路径
      * @return
      */
-    QPixmap pictureDetect(const char *file);
+    QPixmap pictureDetect(const std::string &file);
 
     /**
      * @brief pictureThreadDetect 在线程中检测一张图片
      * @param file 图片路径
      */
-    void pictureThreadDetect(const char *file);
+    void pictureThreadDetect(const std::string &file);
 
     /**
      * @brief openVideo 打开视频文件
      * @param file 文件路径
      * @return
      */
-    bool openVideo(const char *file);
+    bool openVideo(const std::string &file);
 
     /**
      * @brief readVideoFirstFrame 读取视频的第一帧
@@ -102,10 +123,11 @@ public:
     void pauseThreadDetect();
 
 
-    friend class VideoDetectThread;         // 申明友元类
-    VideoDetectThread *thread;              // 视频检测线程
+
+    friend class InferenceThread;         // 申明友元类
+    InferenceThread *thread;              // 视频检测线程
     std::vector<int64_t> output_shape;      // 模型输出形状
-    std::vector<std::string> output_labels; // 模型输出类名
+    std::vector<std::string> classes;       // 模型输出类名
     bool cudaEnableStatus;                  // CUDA使能状态
 
 private:
@@ -116,41 +138,23 @@ private:
      * @param onnxfile  文件路径
      * @return 解析结果
      */
-    int parseOnnxModel(const char *onnxfile);
+    int parseOnnxModel(const std::string &onnxfile);
 #endif
 
-    //
     /**
-     * @brief pre_process 检测预处理
-     * @param image 图像输入
-     * @param blob 处理输出
+     * @brief runInference 启动推理
+     * @param input 图像帧
+     * @return 推理检测结果向量
      */
-    void pre_process(cv::Mat& image, cv::Mat& blob);
-    //
+    std::vector<DetectResult> runInference(const cv::Mat &input);
+
     /**
-     * @brief post_process 检测后处理
+     * @brief drawDetectResult 绘制检测结果
      * @param image 源图像
-     * @param outputs 检测输出图像
-     * @param output_labels 输出标签
-     * @return 输出图像
+     * @param detection 推理检测输出
+     * @return 绘制后图像
      */
-    cv::Mat post_process(cv::Mat& image, std::vector<cv::Mat>& outputs,
-                         std::vector<std::string> &output_labels);
-
-    /**
-     * @brief scale_boxes 缩放检测框
-     * @param box 框
-     * @param size 大小
-     */
-    void scale_boxes(cv::Rect& box, cv::Size size);
-
-    /**
-     * @brief draw_result 绘制检测结果
-     * @param image 图像
-     * @param label 标签
-     * @param box 检测框
-     */
-    void draw_result(cv::Mat& image, std::string label, cv::Rect box);
+    cv::Mat drawDetectResult(cv::Mat& image, std::vector<DetectResult> detect_result);
 
     /**
      * @brief cvMatToQPixmap 转化cv::Mat 到 QPixmap
@@ -169,6 +173,23 @@ private:
     cv::Mat resizeImage(const cv::Mat &image, int maxWidth, int maxHeight);
 
     /**
+     * @brief scaleToLetterBox 缩放成像信封的图像
+     * @param image 原图像
+     * @param newShape 新图像形状
+     * @param color 边框填充颜色
+     * @return 输出图像
+     */
+    cv::Mat scaleToLetterBox(const cv::Mat& image, const cv::Size& newShape, const cv::Scalar& color);
+
+    /**
+     * @brief scaleBoxToSource 缩放监测框到原图像
+     * @param box 检测框
+     * @param source_size 原图像尺寸
+     * @return 输出框
+     */
+    cv::Rect scaleBoxToSource(const cv::Rect &box, cv::Size source_size);
+
+    /**
      * @brief frameDetect 图像帧检测
      * @param frame 图像帧
      * @return
@@ -179,29 +200,40 @@ private:
     cv::dnn::Net net;                       // 模型
     cv::VideoCapture *capture;              // 视频抓取器
     QSize display_size;                     // 图像输出大小
+    int model_type;                         // 模型类型
 
+    // 边界框颜色分类定义
+    std::vector<cv::Scalar> label_color_map = {
+        cv::Scalar(255, 0, 0),      // 蓝色
+        cv::Scalar(0, 255, 0),      // 绿色
+        cv::Scalar(0, 0, 255),      // 红色
+        cv::Scalar(0, 255, 255),    // 黄色
+        cv::Scalar(255, 255, 0),    // 青色
+        cv::Scalar(255, 0, 255),    // 紫色
+    };
 };
 
 
-class VideoDetectThread : public QThread
+
+class InferenceThread : public QThread
 {
     Q_OBJECT
 public:
-    explicit VideoDetectThread() {}
-    ~VideoDetectThread() {}
+    explicit InferenceThread() {}
+    ~InferenceThread() {}
 
-    friend class DetectModel;         // 申明友元类
+    friend class InferenceEngine;           // 申明友元类
 protected:
-    void run() override; // 重写QThread类的虚函数，也是线程子类的入口函数
+    void run() override;                    // 重写QThread类的虚函数，也是线程子类的入口函数
 signals:
-    void done(); // 完成信号
-    void reportProgress(QPixmap output); // 报告完成进度
+    void done();                            // 完成信号
+    void reportProgress(QPixmap output);    // 报告进度
 
 private:
-    DetectModel *model;
+    InferenceEngine *model;
     bool pause_flag = false;
     std::string picture_path;
 };
 
 
-#endif // YOLOV5_H
+#endif // InferenceEngine_H

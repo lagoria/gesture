@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(gesture LANGUAGES CXX VERSION 1.1.2)
+project(gesture LANGUAGES CXX VERSION 1.2.1)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -45,8 +45,8 @@ else()
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
-    yolov5.cpp
-    yolov5.h
+    inferenceEngine.cpp
+    inferenceEngine.h
     ${qrc_FILES}
     eventgroup.h
     eventgroup.cpp
@@ -69,7 +69,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     string(APPEND CMAKE_CXX_FLAGS " /utf-8")
 
     # add OpenCV library
-    set(OpenCV_DIR "I:/Library/opencv-vc16-4.8.0")
+    set(OpenCV_DIR "I:/Library/opencv-msvc16-4.7.0")
     find_package(OpenCV REQUIRED)
     message(STATUS "OpenCV version: ${OpenCV_VERSION}")
     target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
