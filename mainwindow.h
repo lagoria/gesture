@@ -40,9 +40,13 @@ private slots:
 
     void on_loadfile_clicked();
 
+    void on_openCamera_clicked();
+
     void on_startdetect_clicked();
 
     void on_stopdetect_clicked();
+
+    void on_clearButton_clicked();
 
     void detectReport(const QPixmap &output);
     void playDone();
@@ -54,6 +58,8 @@ private:
     InferenceEngine *inference;
     QString filename;
     EventGroup event_group;
+    bool setup_time_flag = false;
+    bool camera_setup_flag = false;
 
 };
 #endif // MAINWINDOW_H

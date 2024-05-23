@@ -9,7 +9,6 @@
 #include <QDebug>
 // OpenCV
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/cuda.hpp>
 
 #ifdef USE_ONNXRUNTIME_LIB
 // ONNX Runtime
@@ -101,6 +100,24 @@ public:
     bool openVideo(const std::string &file);
 
     /**
+     * @brief openDefaultCamera 打开默认摄像头
+     * @return
+     */
+    bool openDefaultCamera();
+
+    /**
+     * @brief readCameraVideoStream 读取摄像视频流
+     * @return
+     */
+    int readCameraVideoStream();
+
+    /**
+     * @brief stopCameraVideoStream 停止摄像视频流
+     * @return
+     */
+    int stopCameraVideoStream();
+
+    /**
      * @brief readVideoFirstFrame 读取视频的第一帧
      * @return 输出图片
      */
@@ -124,8 +141,8 @@ public:
 
 
 
-    friend class InferenceThread;         // 申明友元类
-    InferenceThread *thread;              // 视频检测线程
+    friend class InferenceThread;           // 申明友元类
+    InferenceThread *thread;                // 视频检测线程
     std::vector<int64_t> output_shape;      // 模型输出形状
     std::vector<std::string> classes;       // 模型输出类名
     bool cudaEnableStatus;                  // CUDA使能状态
@@ -231,8 +248,10 @@ signals:
 
 private:
     InferenceEngine *model;
-    bool pause_flag = false;
+    bool pause_thread_flag = false;         // 中断线程标志
     std::string picture_path;
+    bool setup_detect_flag = false;         // 启动检测标志
+    bool video_stream_flag = false;         // 摄像视频流标志
 };
 
 

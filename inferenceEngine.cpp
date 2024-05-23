@@ -453,6 +453,38 @@ bool InferenceEngine::openVideo(const std::string &file)
     return true;
 }
 
+bool InferenceEngine::openDefaultCamera()
+{
+    if (this->capture->isOpened()) {
+        this->capture->release();
+    }
+    // open default camera
+    this->capture->open(0);
+
+    return this->capture->isOpened();
+}
+
+int InferenceEngine::readCameraVideoStream()
+{
+    if (this->capture->isOpened()) {
+        this->thread->video_stream_flag = true;
+        this->thread->model = this;
+        this->thread->start();
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+int InferenceEngine::stopCameraVideoStream()
+{
+    if (this->thread->setup_detect_flag == true) {
+        return -1;
+    }
+
+    this->thread->pause_thread_flag = true;
+    return 0;
+}
 
 QPixmap InferenceEngine::readVideoFirstFrame()
 {
@@ -475,13 +507,20 @@ void InferenceEngine::setVideoStartFrame(unsigned long startPoint)
 
 void InferenceEngine::startThreadDetect()
 {
-    this->thread->model = this;
-    this->thread->start();
+    this->thread->setup_detect_flag = true;
+    if (this->thread->isRunning() == false) {
+        this->thread->model = this;
+        this->thread->start();
+    }
 }
 
 void InferenceEngine::pauseThreadDetect()
 {
-    this->thread->pause_flag = true;
+    if (this->thread->video_stream_flag == true) {
+        this->thread->setup_detect_flag = false;
+    } else {
+        this->thread->pause_thread_flag = true;
+    }
 }
 
 
@@ -491,24 +530,35 @@ void InferenceEngine::pauseThreadDetect()
 void InferenceThread::run()
 {
     cv::Mat frame;
-    pause_flag = false;
+    QPixmap output;
+    pause_thread_flag = false;
     if (this->picture_path.empty() == false) {
         frame = cv::imread(this->picture_path);
-        QPixmap output = this->model->frameDetect(frame);
+        output = this->model->frameDetect(frame);
         emit reportProgress(output);
         this->picture_path.clear();
     } else {
         while (this->model->capture->read(frame)) {
-            QPixmap output = this->model->frameDetect(frame);
+            if (setup_detect_flag == true) {
+                output = this->model->frameDetect(frame);
+            } else {
+                output = this->model->cvMatToQPixmap(frame);
+            }
             emit reportProgress(output);
 
-            if (pause_flag == true) {
+            if (pause_thread_flag == true) {
+                if (video_stream_flag == true) {
+                    this->model->capture->release();
+                }
                 break;
             }
         }
     }
 
+    this->video_stream_flag = false;
+    this->setup_detect_flag = false;
 
     emit done();
+
 }
 

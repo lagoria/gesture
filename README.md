@@ -14,7 +14,7 @@ A image hand gesture number detection of Qt application
 
 - supported YOLOv5  and YOLOv8 export onnx detection model
 
-- surported picture and video (.mp4, .avi)
+- surported picture , video (.mp4, .avi) and camera
 
 - gesture model characteristic:
 

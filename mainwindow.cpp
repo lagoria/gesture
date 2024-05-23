@@ -139,16 +139,58 @@ void MainWindow::on_loadfile_clicked()
 
 }
 
+void MainWindow::on_openCamera_clicked()
+{
+    if (this->camera_setup_flag == true) {
+        // 关闭摄像头
+        ui->openCamera->setText("打开摄像头");
+        ui->openCamera->setIcon(QIcon(":/icon/eye.ico"));
+        this->inference->stopCameraVideoStream();
+        this->camera_setup_flag = false;
+
+        event_group.clearBits(OPENED_FILE_EVT);
+        ui->startdetect->setEnabled(false);
+    } else {
+        // 打开摄像头
+        if (this->inference->openDefaultCamera()) {
+            ui->textEditlog->append("Camera opened succesfully!");
+            this->inference->readCameraVideoStream();
+            ui->openCamera->setText("关闭摄像头");
+            ui->openCamera->setIcon(QIcon(":/icon/exit.ico"));
+            this->camera_setup_flag = true;
+
+            ui->openfile->setEnabled(false);
+
+            // 设置视频选择事件
+            event_group.setBits(SELECT_VIDEO_EVT);
+            event_group.clearBits(SELECT_PICTURE_EVT);
+
+            // 判断事件条件，启动预测按钮
+            event_group.setBits(OPENED_FILE_EVT);
+            if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
+                ui->startdetect->setEnabled(true);
+            }
+        } else {
+            ui->textEditlog->append("Camera open failed!");
+        }
+    }
+
+}
+
+
 void MainWindow::on_startdetect_clicked()
 {
+    ui->startdetect->setEnabled(false);
+    ui->openfile->setEnabled(false);
+    ui->loadfile->setEnabled(false);
+    ui->openCamera->setEnabled(false);
+    ui->textEditlog->append(QStringLiteral("======start detect======"));
+
     if (event_group.waitBits(SELECT_PICTURE_EVT)) {
-        ui->startdetect->setEnabled(false);
         ui->stopdetect->setEnabled(false);
-        ui->openfile->setEnabled(false);
-        ui->loadfile->setEnabled(false);
-        ui->textEditlog->append(QStringLiteral("======start detect======"));
 
         // 开始计时
+        this->setup_time_flag = true;
         timer.start();
         this->inference->imageOutSizeConfig(ui->label->size());
         this->inference->pictureThreadDetect(this->filename.toStdString());
@@ -156,14 +198,9 @@ void MainWindow::on_startdetect_clicked()
     }
 
     if (event_group.waitBits(SELECT_VIDEO_EVT)) {
-        ui->startdetect->setEnabled(false);
         ui->stopdetect->setEnabled(true);
-        ui->openfile->setEnabled(false);
-        ui->loadfile->setEnabled(false);
-        ui->textEditlog->append(QStringLiteral("======start detect======"));
 
-        // 开始计时
-        timer.start();
+        this->inference->setVideoStartFrame(0);
         this->inference->imageOutSizeConfig(ui->label->size());
         this->inference->startThreadDetect();
     }
@@ -171,40 +208,45 @@ void MainWindow::on_startdetect_clicked()
 
 void MainWindow::on_stopdetect_clicked()
 {
-
-    if (event_group.waitBits(SELECT_PICTURE_EVT)) {
+    if (this->camera_setup_flag == true) {
         ui->startdetect->setEnabled(true);
         ui->stopdetect->setEnabled(false);
-        ui->openfile->setEnabled(true);
+        ui->openCamera->setEnabled(true);
         ui->loadfile->setEnabled(true);
-        ui->textEditlog->append(QStringLiteral("=======end detect=======\n"));
-
-    } else {
-        this->inference->pauseThreadDetect();
     }
 
+    this->inference->pauseThreadDetect();
 }
 
 
+void MainWindow::on_clearButton_clicked()
+{
+    ui->label->clear();
+    ui->textEditlog->clear();
+}
+
 void MainWindow::detectReport(const QPixmap &output)
 {
-    // 停止计时，并获取经过的时间（以毫秒为单位）
-    int elapsedTime = timer.elapsed();
-    ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsedTime));
-
+    if (this->setup_time_flag == true) {
+        // 停止计时，并获取经过的时间（以毫秒为单位）
+        int elapsedTime = timer.elapsed();
+        ui->textEditlog->append(QString("cost_time: %1 ms").arg(elapsedTime));
+        this->setup_time_flag = false;
+    }
     QPixmap picture = output.scaled(ui->label->size(), Qt::KeepAspectRatio);
     this->inference->imageOutSizeConfig(ui->label->size());
     ui->label->setPixmap(picture);
-
-    timer.start();
 }
 
 void MainWindow::playDone()
 {
-    ui->startdetect->setEnabled(true);
+    // 判断事件条件，启动预测按钮
+    if (event_group.waitBits(OPENED_FILE_EVT) && event_group.waitBits(OPENED_ONNX_EVT)) {
+        ui->startdetect->setEnabled(true);
+    }
     ui->stopdetect->setEnabled(false);
     ui->openfile->setEnabled(true);
     ui->loadfile->setEnabled(true);
+    ui->openCamera->setEnabled(true);
     ui->textEditlog->append(QStringLiteral("=======end detect=======\n"));
-    timer.elapsed();
 }
